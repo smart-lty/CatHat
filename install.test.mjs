@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { discoverDirectories, isBbProcess, layoutPaths } from './install.mjs';
@@ -61,6 +63,12 @@ async function fixtureRelease(root, env) {
   const theme = 'theme/monocode-dark-palette.json';
   checksums[theme] = createHash('sha256').update(palette).digest('hex');
   await writeFile(path.join(source, theme), palette);
+  for (const name of ['wallpaper-dark-desktop.jpg', 'wallpaper-dark-mobile.jpg']) {
+    const file = `theme/${name}`;
+    const bytes = await readFile(new URL(file, import.meta.url));
+    checksums[file] = createHash('sha256').update(bytes).digest('hex');
+    await writeFile(path.join(source, file), bytes);
+  }
   await writeJson(path.join(source, 'sha256.json'), checksums);
   return source;
 }
@@ -154,7 +162,8 @@ test('offline npm install and rollback honor both supported directory layouts', 
   }
   const desktop = path.join(root, 'desktop');
   await mkdir(desktop);
-  await run('--source', source, '--dir', desktop, '--plugins-only', '--skip-post-start');
+  await rm(path.join(source, 'theme', 'wallpaper-dark-desktop.jpg'));
+  await run('--source', source, '--dir', desktop, '--plugins-only', '--skip-post-start', '--no-wallpaper');
   await assert.rejects(stat(path.join(desktop, 'npm')), { code: 'ENOENT' });
   await stat(path.join(desktop, 'bb-share', 'pending.json'));
   await stat(path.join(desktop, 'bb-share', 'install.mjs'));
@@ -164,4 +173,91 @@ test('offline npm install and rollback honor both supported directory layouts', 
   await writeFile(path.join(source, 'theme', 'monocode-dark-palette.json'), '{}');
   await assert.rejects(run('--source', source, '--dir', dataDir, '--skip-post-start'), /SHA-256 mismatch/);
   assert.equal((await manifest(location)).version, '1.0.0');
+});
+
+const installedTestApp = process.env.BB_SHARE_TEST_APP_ROOT;
+const release = path.dirname(installer);
+
+async function freeLoopbackPort() {
+  const socket = createServer();
+  await new Promise((resolve, reject) => socket.listen(0, '127.0.0.1', resolve).once('error', reject));
+  const port = socket.address().port;
+  await new Promise(resolve => socket.close(resolve));
+  return port;
+}
+
+test('post-start applies and protects real MonoCode wallpapers', {
+  skip: !installedTestApp || process.platform === 'win32',
+  timeout: 240_000,
+}, async t => {
+  const { root, home, env, run } = await fixture(t);
+  const dataDir = path.join(root, 'isolated data');
+  await mkdir(dataDir);
+  const [port, hostPort] = await Promise.all([freeLoopbackPort(), freeLoopbackPort()]);
+  const url = `http://127.0.0.1:${port}`;
+  const entry = path.join(installedTestApp, 'dist', 'bb-app.js');
+  const cli = path.join(installedTestApp, 'dist', 'bb.js');
+  const appEnv = { PATH: process.env.PATH, HOME: home, TMPDIR: root, NODE_ENV: 'production', BB_TELEMETRY: 'false' };
+  const bb = spawn(process.execPath, [entry, '--data-dir', dataDir, '--server-port', String(port),
+    '--host-daemon-port', String(hostPort), '--bundled'], { env: appEnv, detached: true, stdio: 'ignore' });
+  const stopped = new Promise(resolve => bb.once('exit', resolve));
+  const controller = new AbortController();
+  const pending = path.join(dataDir, 'bb-share', 'install.mjs');
+  const cliEnv = { ...appEnv, BB_DATA_DIR: dataDir, BB_SERVER_URL: url };
+  const bg = async (...args) => (await exec(process.execPath, [cli, 'monocode-colors', 'bg', ...args], {
+    env: cliEnv, timeout: 30_000, signal: controller.signal,
+  })).stdout;
+  const read = async () => JSON.parse(await bg('--json'));
+  const prepare = (...flags) => run('--source', release, '--dir', dataDir, '--plugins-only', '--skip-post-start',
+    '--server-url', url, '--bb-cli', cli, ...flags);
+  const resume = (...flags) => exec(process.execPath, [pending, '--post-start', ...flags], {
+    env, timeout: 120_000, signal: controller.signal,
+  });
+  try {
+    await t.test('default setup writes both dark slots and the recommended look', async () => {
+      await prepare();
+      await resume();
+      const { images, look } = await read();
+      assert.ok(images.dark);
+      assert.ok(images.darkMobile);
+      assert.equal(images.light, null);
+      assert.equal(images.lightMobile, null);
+      assert.deepEqual(look, { fit: 'cover', position: 'center', opacity: 56, blur: 0, scrim: 10 });
+    });
+    await t.test('existing dark images and shared settings survive when the other slot is filled', async () => {
+      for (const slot of ['dark', 'darkMobile']) {
+        await bg('clear', '--dark');
+        const mobile = slot === 'darkMobile' ? ['--mobile'] : [];
+        const otherImage = slot === 'darkMobile' ? 'wallpaper-dark-desktop.jpg' : 'wallpaper-dark-mobile.jpg';
+        await bg('set', path.join(release, 'theme', otherImage), '--dark', ...mobile);
+        await bg('opacity', '37');
+        const before = await read();
+        await prepare();
+        await resume();
+        const after = await read();
+        assert.equal(after.images[slot], before.images[slot]);
+        assert.ok(after.images[slot === 'dark' ? 'darkMobile' : 'dark']);
+        assert.deepEqual(after.look, before.look);
+        assert.equal(after.images.light, null);
+        assert.equal(after.images.lightMobile, null);
+      }
+    });
+    await t.test('no-wallpaper is honored when staging or resuming', async () => {
+      await bg('clear', '--dark');
+      const before = await read();
+      await prepare('--no-wallpaper');
+      await resume();
+      assert.deepEqual(await read(), before);
+      await prepare();
+      await resume('--no-wallpaper');
+      assert.deepEqual(await read(), before);
+    });
+  } finally {
+    controller.abort();
+    if (bb.exitCode === null && bb.signalCode === null) {
+      process.kill(-bb.pid, 'SIGTERM');
+      await Promise.race([stopped, delay(5000, undefined, { ref: false })]);
+      if (bb.exitCode === null && bb.signalCode === null) await stopped;
+    }
+  }
 });

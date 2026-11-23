@@ -1,6 +1,6 @@
 # BB 定制分享版
 
-基于 BB 0.49.0，包含核心 npm 包、六个预构建插件和 MonoCode 暗色色板。核心包包含浏览器 UI、server、host daemon、CLI、SQLite 数据层与内置插件。
+基于 BB 0.49.0，包含核心 npm 包、六个预构建插件、MonoCode 暗色色板和桌面横版、手机竖版暗色壁纸。核心包包含浏览器 UI、server、host daemon、CLI、SQLite 数据层与内置插件。
 
 - 输入框把权限选项收进模型菜单，支持宽屏居中、统一的 Queue 提示和多轮回报去重。
 - 子任务每父线程最多并发三个，按加入顺序排队，Undo 保留相应槽位。回报支持合并通知、人工回合防打断、右窗直聊静默和空回防抖。内置存储保留插件含自动归档护栏。
@@ -37,7 +37,9 @@ curl -fsSL https://github.com/smart-lty/bb-custom/releases/latest/download/insta
 
 薄壳使用发布时设置的下载地址，也可用 `BB_SHARE_BASE_URL` 或 `$env:BB_SHARE_BASE_URL` 覆盖。命令会执行下载的脚本，请使用你信任的发布地址。
 
-看到提示后，用原来的启动方式重新打开 BB。安装器会等待本地 server 就绪，随后用 BB CLI 安装六个插件并导入暗色色板，保留已有的浅色色板。选择 Settings 里的 **MonoCode** 主题和 **Dark** 模式即可查看效果。壁纸由使用者在 MonoCode colors 设置中添加。
+看到提示后，用原来的启动方式重新打开 BB。安装器会等待本地 server 就绪，随后用 BB CLI 安装六个插件并导入暗色色板，保留已有的浅色色板。选择 Settings 里的 **MonoCode** 主题和 **Dark** 模式即可查看效果。空置的暗色桌面与手机竖屏槽位会加入默认壁纸。四个壁纸槽位都为空时，会应用推荐效果（填满视窗、居中、透明度 56、遮罩 10、模糊 0）。已有壁纸时保留原图和现有视觉参数，浅色槽位保持原设置。
+
+使用 `--no-wallpaper` 可以只应用烟熏黑暗色色板、跳过默认壁纸。执行分步安装时，可在准备阶段或 `--post-start` 阶段传入该参数。随时可在 **Settings → MonoCode colors → Background** 更换或清除图片；也可在 CLI 运行 `bb monocode-colors bg clear --dark` 清除两个暗色槽位，附加 `--mobile` 则只清除手机槽位。
 
 安装器会在所选数据目录的 `bb-share/install.mjs` 留下一份副本。默认等待五分钟。按 Ctrl+C 中断或超时后，启动 BB 并运行以下命令。该副本会自动使用所在的 BB 数据目录。
 
@@ -111,4 +113,4 @@ node "<BB 数据目录>/bb-share/install.mjs" --rollback
 
 1. 复核 [脱敏扫描](PRIVACY.md) 和 [隔离验证](VERIFICATION.md)。在新仓库中加入此目录的文件，保留许可证。两个薄壳与使用示例均指向 `smart-lty/bb-custom`。
 2. 在该分享仓库提交并推送，创建一个 GitHub Release，例如 `v0.49.0-custom.1`。
-3. 把 `install.sh`、`install.ps1`、`install.mjs`、`sha256.json`、核心 tgz、六个插件 tgz 和色板 JSON 作为同一个 Release 的独立附件上传。GitHub Release 附件按文件名平铺。用该发布的下载地址验证两条一键命令，再分享链接。
+3. 把 `install.sh`、`install.ps1`、`install.mjs`、`sha256.json`、核心 tgz、六个插件 tgz、色板 JSON 和两张壁纸 JPG 作为同一个 Release 的独立附件上传。GitHub Release 附件按文件名平铺。用该发布的下载地址验证两条一键命令，再分享链接。

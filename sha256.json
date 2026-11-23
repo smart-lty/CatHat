@@ -6,5 +6,7 @@
   "release/plugins/monocode-sidebar.tgz": "7b689a01c45b6743b0915e254bf8c67754a6b0e790033cdd7e014899fa32dc02",
   "release/plugins/monocode-ui.tgz": "67ebdf28b4c04516eb74e27c547bf64e11ff91ae76804846b092e974c120f432",
   "release/plugins/turn-usage.tgz": "d8a36270cb3e3cdab118b433fa3a32753152bd8792b76c0ce49571ac04289d23",
-  "theme/monocode-dark-palette.json": "7f21baf2a6d728080c512f2e658ed420ab6b244177677fb270b55374dfdbdaa5"
+  "theme/monocode-dark-palette.json": "7f21baf2a6d728080c512f2e658ed420ab6b244177677fb270b55374dfdbdaa5",
+  "theme/wallpaper-dark-desktop.jpg": "df2f824807d109ccf5c2cbd57bc241854623d5157bce33a773d8813c221398bb",
+  "theme/wallpaper-dark-mobile.jpg": "e1f6e53da7ac00c5e89ddde0004907fd5c56e80518802a6cb3dfcfba5175fe85"
 }

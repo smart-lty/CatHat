@@ -54,6 +54,10 @@ async function retainInstaller(stateDir) {
 }
 const core = 'release/bb-app-custom.tgz';
 const palette = 'theme/monocode-dark-palette.json';
+const wallpapers = {
+  dark: 'theme/wallpaper-dark-desktop.jpg',
+  darkMobile: 'theme/wallpaper-dark-mobile.jpg',
+};
 const plugins = ['monocode-ui', 'monocode-colors', 'monocode-sidebar', 'monocode-composer', 'monocode-environment-card', 'turn-usage'];
 const archives = plugins.map(id => `release/plugins/${id}.tgz`);
 const pluginId = name => name === 'monocode-environment-card' ? 'environment-card' : name;
@@ -273,14 +277,19 @@ async function sha256(file) {
   return hash.digest('hex');
 }
 
-async function stageRelease(root, sourceName, includeCore) {
+async function stageRelease(root, sourceName, includeCore, includeWallpaper) {
   const source = assetReader(sourceName);
   const stage = await mkdtemp(path.join(root, 'release-'));
   try {
     const manifest = path.join(stage, 'sha256.json');
     await download(source, 'sha256.json', manifest);
     const checksums = await json(manifest);
-    const names = [...archives, palette, ...(includeCore ? [core] : [])];
+    const names = [
+      ...archives,
+      palette,
+      ...(includeCore ? [core] : []),
+      ...(includeWallpaper ? Object.values(wallpapers) : []),
+    ];
     for (const name of names) {
       const expected = checksums[name];
       if (!/^[0-9a-f]{64}$/.test(expected)) throw new Error(`Missing SHA-256 for ${name}.`);
@@ -412,6 +421,31 @@ function loopbackUrl(input) {
   return url.origin;
 }
 
+async function applyDefaultWallpaper(run, stage, signal) {
+  const background = (...args) => {
+    signal.throwIfAborted();
+    return run(['monocode-colors', 'bg', ...args]);
+  };
+  const slots = ['light', 'lightMobile', 'dark', 'darkMobile'];
+  const readImages = async () => {
+    const { images } = JSON.parse(await background('--json'));
+    if (!images || slots.some(slot => images[slot] !== null && typeof images[slot] !== 'string')) {
+      throw new Error('Unexpected MonoCode background state. Existing wallpapers were left as-is.');
+    }
+    return images;
+  };
+  const images = await readImages();
+  if (slots.every(slot => images[slot] === null)) {
+    const look = { fit: 'cover', position: 'center', opacity: '56', scrim: '10', blur: '0' };
+    for (const [key, value] of Object.entries(look)) await background(key, value);
+  }
+  for (const [slot, file] of Object.entries(wallpapers)) {
+    if (images[slot] !== null || (await readImages())[slot] !== null) continue;
+    const mobile = slot === 'darkMobile' ? ['--mobile'] : [];
+    await background('set', path.join(stage, path.posix.basename(file)), '--dark', ...mobile);
+  }
+}
+
 async function postStart(dataDir, stateDir, installed, options, signal) {
   const pendingFile = path.join(stateDir, 'pending.json');
   if (!await exists(pendingFile)) throw new Error('No prepared release awaits plugin setup. Run the installer first.');
@@ -440,6 +474,7 @@ async function postStart(dataDir, stateDir, installed, options, signal) {
   const preset = await json(path.join(stage, path.posix.basename(palette)));
   const current = JSON.parse(await run(['monocode-colors', 'export']));
   await run(['monocode-colors', 'import', JSON.stringify({ light: current.light, dark: preset.dark })]);
+  if (!options['no-wallpaper'] && pending.wallpaper === true) await applyDefaultWallpaper(run, stage, signal);
   await rm(pendingFile);
   console.log('Six plugins are running and the dark palette is applied.');
 }
@@ -448,11 +483,11 @@ async function main() {
   const { values: options } = parseArgs({ options: {
     source: { type: 'string' }, dir: { type: 'string' }, 'dry-run': { type: 'boolean' },
     rollback: { type: 'boolean' }, 'plugins-only': { type: 'boolean' }, 'skip-post-start': { type: 'boolean' },
-    'post-start': { type: 'boolean' }, 'server-url': { type: 'string' }, 'bb-cli': { type: 'string' },
+    'post-start': { type: 'boolean' }, 'no-wallpaper': { type: 'boolean' }, 'server-url': { type: 'string' }, 'bb-cli': { type: 'string' },
     'wait-seconds': { type: 'string', default: '300' }, help: { type: 'boolean', short: 'h' },
   } });
   if (options.help) {
-    console.log('node install.mjs [--source <https-url-or-directory>] [--dir <data-directory>] [--dry-run] [--plugins-only] [--skip-post-start | --post-start | --rollback] [--wait-seconds <seconds>] [--server-url <local-origin>] [--bb-cli <bb.js>]');
+    console.log('node install.mjs [--source <https-url-or-directory>] [--dir <data-directory>] [--dry-run] [--plugins-only] [--no-wallpaper] [--skip-post-start | --post-start | --rollback] [--wait-seconds <seconds>] [--server-url <local-origin>] [--bb-cli <bb.js>]');
     return;
   }
   const node = process.versions.node.split('.').map(Number);
@@ -502,7 +537,8 @@ async function main() {
     }
     await retainInstaller(state);
     const source = options.source ?? process.env.BB_SHARE_BASE_URL ?? path.dirname(entryPath);
-    const stage = await stageRelease(state, source, needsStopped);
+    const wallpaper = !options['no-wallpaper'];
+    const stage = await stageRelease(state, source, needsStopped, wallpaper);
     if (needsStopped) {
       await replaceCore(dataDir, state, installed, stage);
       console.log(`Custom core installed. Restore the original npm prefix with: ${recoveryCommand(state, 'rollback')}`);
@@ -511,6 +547,7 @@ async function main() {
     const next = path.join(stage, 'pending.json');
     await writeFile(next, JSON.stringify({
       release: path.basename(stage),
+      wallpaper,
       serverUrl: options['server-url'],
       bbCli: options['bb-cli'] ? path.resolve(options['bb-cli']) : undefined,
     }));

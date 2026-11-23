@@ -12,13 +12,18 @@
 | 内置插件 | `concurrency-limit`、`side-chat` 已运行；通过 CLI 启用了默认关闭的 `storage-retention`，预览并设置了 7 天自动归档。 |
 | 回滚 | 隔离服务运行时拦截了回滚；退出后真实恢复官方 npm 目录，启动器 SHA-256 与替换前一致。 |
 
-本轮修订仅涉及安装脚本、测试、使用说明与验证记录。复扫这六个文件后，私人和公司内网关键词命中为 0。七个 tgz 的修改前后 SHA-256 全部一致。
+## 默认壁纸验证
 
-Linux、WSL2 和 Windows 原生的完整启动仍待实机验证。Windows 本次验证覆盖路径和进程命令样例，以及 PowerShell 脚本语法。发布附件的布局与下载逻辑已按 GitHub Release 设计，远端发布与下载尚未执行。UI 验证到 HTML 响应，侧栏、输入框和壁纸的视觉效果留给审阅。
+- macOS arm64、Node 26.13.0 使用真实 BB 包、独立 HOME 和本地临时端口，安装器测试共 10 项通过。默认安装写入暗色桌面与手机槽位；`bb monocode-colors bg --json` 返回 `cover`、`center`、透明度 56、遮罩 10、模糊 0，浅色两个槽位均为空。
+- 分别保留已有的暗色桌面和手机图，只补另一空槽。已有图对应的槽位引用与共享视觉设置保持原值。准备阶段和续跑阶段传入 `--no-wallpaper` 均保留原背景状态。
+- 两张 JPEG 通过段结构检查和原图 RGB 像素比对。发布脚本均为 7-bit ASCII，复扫私有关键词命中为 0。七个 tgz 和原色板 SHA-256 均匹配原清单。
+
+Linux、WSL2 和 Windows 原生的完整启动仍待实机验证。Windows 本次验证覆盖路径和进程命令样例，以及 PowerShell 脚本语法。UI 冒烟验证到 HTML 响应和壁纸的 CLI 状态，浏览器内的视觉效果留给审阅。
 
 复跑安装器测试。
 
 ```bash
 node --test install.test.mjs
 bash -n install.sh
+BB_SHARE_TEST_APP_ROOT="/path/to/installed/bb-app" node --test install.test.mjs
 ```
