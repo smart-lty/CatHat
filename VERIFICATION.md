@@ -18,6 +18,12 @@
 - 分别保留已有的暗色桌面和手机图，只补另一空槽。已有图对应的槽位引用与共享视觉设置保持原值。准备阶段和续跑阶段传入 `--no-wallpaper` 均保留原背景状态。
 - 两张 JPEG 通过段结构检查和原图 RGB 像素比对。发布脚本均为 7-bit ASCII，复扫私有关键词命中为 0。七个 tgz 和原色板 SHA-256 均匹配原清单。
 
+## 四个插件更新
+
+- 使用保留的 BB 0.49.0 包，在 macOS arm64、Node 26.13.0 的隔离实例验证候选包。新版 monocode-ui、monocode-colors、monocode-composer 和 monocode-sidebar 均通过真实 CLI 安装并报告 `running`。
+- `node --test install.test.mjs` 启用真实 BB 集成测试，共 10 项通过，覆盖安装、回滚、壁纸应用及保留原有壁纸。
+- 表格列宽、壁纸样式和侧栏 Inbox 的专项测试共 25 项通过。新包使用当前源码中的 CJK 表格列宽分配、移动端壁纸视窗定位与桌面分屏透底、移动折叠态附件错误提示，以及侧栏未读主线程优先级。
+
 Linux、WSL2 和 Windows 原生的完整启动仍待实机验证。Windows 本次验证覆盖路径和进程命令样例，以及 PowerShell 脚本语法。UI 冒烟验证到 HTML 响应和壁纸的 CLI 状态，浏览器内的视觉效果留给审阅。
 
 复跑安装器测试。
