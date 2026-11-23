@@ -1,0 +1,99 @@
+name: Build custom desktop installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release with the verified custom core
+        required: true
+        default: v0.49.0-custom.1
+        type: string
+      upload_to_release:
+        description: Attach both installers to the same release
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custom-desktop-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            artifact: macos-arm64
+            installer: bb-custom-macos-arm64.dmg
+          - runner: windows-2025
+            artifact: windows-x64
+            installer: bb-custom-windows-x64.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: get-bb/bb
+          ref: da3e60b81d560e114a2bec724bb59c997aaaae7f
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22.x"
+          package-manager-cache: false
+      - name: Download custom core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern bb-app-custom.tgz --pattern sha256.json --dir inputs -- "$RELEASE_TAG"
+          node -e 'require("node:assert/strict").deepEqual(require("./inputs/sha256.json"), require("./sha256.json"))'
+      - name: Install locked upstream dependencies
+        working-directory: upstream
+        run: |
+          npm install --global pnpm@9.15.0 --ignore-scripts
+          pnpm install --frozen-lockfile --ignore-scripts
+          cd apps/desktop
+          env -u ELECTRON_SKIP_BINARY_DOWNLOAD node node_modules/electron/install.js
+      - name: Inject, package and smoke-test
+        run: node scripts/build-desktop.mjs upstream inputs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ${{ matrix.artifact }}
+          path: upstream/apps/desktop/release/${{ matrix.installer }}
+          if-no-files-found: error
+
+  publish:
+    name: Attach verified installers
+    if: inputs.upload_to_release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          path: installers
+          merge-multiple: true
+      - name: Publish both installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          test -s installers/bb-custom-macos-arm64.dmg
+          test -s installers/bb-custom-windows-x64.exe
+          gh release upload --repo "$GITHUB_REPOSITORY" --clobber -- "$RELEASE_TAG"             installers/bb-custom-macos-arm64.dmg installers/bb-custom-windows-x64.exe

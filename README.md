@@ -6,7 +6,18 @@
 - 子任务每父线程最多并发三个，按加入顺序排队，Undo 保留相应槽位。回报支持合并通知、人工回合防打断、右窗直聊静默和空回防抖。内置存储保留插件含自动归档护栏。
 - MonoCode 提供烟熏黑、暖杏色行内代码、独立的暗色 Markdown、壁纸与移动端背景选项、Projects / Activity 双视图、侧栏滑动归档与 Undo、胶囊输入框、Environment 卡片和每轮用量。
 
-## 安装
+## 方式 1 · 下载桌面安装包
+
+- **macOS Apple Silicon（arm64）** 下载 [DMG](https://github.com/smart-lty/bb-custom/releases/latest/download/bb-custom-macos-arm64.dmg)，打开后将 `BB Custom.app` 拖到 Applications。此版本采用临时签名，未经 Apple 公证。确认下载可信后，如系统阻止启动，可在终端执行 `xattr -cr "/Applications/BB Custom.app"`，再打开应用。
+- **Windows x64** 下载 [EXE](https://github.com/smart-lty/bb-custom/releases/latest/download/bb-custom-windows-x64.exe)。确认下载可信后，若 SmartScreen 显示保护提示，点 **更多信息 → 仍要运行**。
+
+桌面包内含 BB 定制核心，关闭了桌面壳与核心的更新入口。首次启动前请退出占用同一本地端口的 BB，并选择本地运行。六个 MonoCode 插件、色板和壁纸通过现有安装器补装。启动 BB Custom 后，用下方脚本的传参方式加 `--plugins-only --dir "<BB 数据目录>"`。需要指定 CLI 时，`--bb-cli` 指向安装目录下 `resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。macOS 的对应路径为 `BB Custom.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。没有启动记录时同时使用 `--server-url` 指定本地实例。仓库为私有时，有权限的用户可下载 Release 文件，按下方本地目录布局执行 `node install.mjs --source . --plugins-only`。
+
+维护者可从 **Actions → Build custom desktop installers** 手动运行 workflow。默认使用 `v0.49.0-custom.1`，两个平台都通过打包冒烟检查后才上传。取消勾选 `upload_to_release` 可仅保留本轮 Actions 产物。
+
+## 方式 2 · 官方签名 BB + 一键脚本
+
+此方式使用官方签名桌面壳或现有的 npm 安装，无需放行新的桌面安装包，支持 `--rollback` 恢复原核心。
 
 需要 Node.js 22.19+、npm 和 Git。BB 0.49.0 的 Node 支持范围为 22.19+ 的 22 系列、24 和 26。原生 Windows 使用 Node.js 与 Git for Windows；WSL2 请在同一 Linux 发行版里安装并运行 Node、Git、BB 和本脚本。
 
