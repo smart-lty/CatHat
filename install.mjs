@@ -522,7 +522,7 @@ async function postStart(dataDir, stateDir, installed, options, signal) {
 async function main() {
   const args = process.argv.slice(2);
   const initIndex = args.indexOf('--init-cathat');
-  if (initIndex !== -1 && (args[initIndex + 1] === undefined || args[initIndex + 1].startsWith('--'))) {
+  if (initIndex !== -1 && (args[initIndex + 1] === undefined || args[initIndex + 1].startsWith('-'))) {
     args.splice(initIndex + 1, 0, path.join(homedir(), 'cathat-workspace'));
   }
   const { values: options } = parseArgs({ args, options: {

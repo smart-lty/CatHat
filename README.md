@@ -17,7 +17,7 @@ CatHat 提供多 Agent 主控、跨会话 Markdown 记忆和夜间 Dreaming。�
 2. 在 BB 新建一个名为 **CatHat** 的项目，指向该工作区。打开项目线程即可使用主控规则、子线程派活与自动注入的记忆。运行 `bb memory status` 核对 `memoryRoot` 和索引。初始化只写缺失的模板文件，保留已有文件。
 3. 需要自定义会话风格时，将 `SOUL.md.example` 复制为 `SOUL.md`，再用下文配置命令指定文件路径。Dreaming 可选，配置后每天 04:00 按服务端时区整理记忆并生成日报。
 
-`--init-cathat` 默认使用家目录里的 `cathat-workspace`，单独调用时只装插件、色板和壁纸，保留原核心。也可在 `--post-start` 阶段传入。安装会禁用 BB 自带的 `memory` 插件，把 `bb memory` 命令交给 CatHat。原有记忆文件保留。此版用于新安装；已有旧 CatHat Memory 数据库的用户请保留原插件与数据库备份，旧数据库迁移未纳入本次发布。
+`--init-cathat` 默认使用家目录里的 `cathat-workspace`。直接传入时无需停止 BB，只装插件、色板和壁纸并初始化工作区。需要同时更换核心时，先按下文安装定制核心，然后执行初始化。若用了 `--skip-post-start`，重启后在 `--post-start` 命令加上 `--init-cathat [目录]` 可一次完成。安装会禁用 BB 自带的 `memory` 插件，把 `bb memory` 命令交给 CatHat。原有记忆文件保留。此版用于新安装；已有旧 CatHat Memory 数据库的用户请保留原插件与数据库备份，旧数据库迁移未纳入本次发布。
 
 ```text
 bb plugin config cathat-memory set soulPath "<absolute-path-to-SOUL.md>"
