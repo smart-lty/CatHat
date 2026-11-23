@@ -21,7 +21,7 @@ assert.equal(await sha256(tarball), manifest["release/bb-app-custom.tgz"], "Cust
 
 const extracted = path.join(input, "core");
 await mkdir(extracted);
-run("tar", ["-xzf", tarball, "-C", extracted, "--strip-components=1"]);
+run("tar", ["-xzf", "bb-app-custom.tgz", "-C", "core", "--strip-components=1"], input);
 const corePackage = await json(path.join(extracted, "package.json"));
 const upstreamPackage = await json(path.join(runtime, "package.json"));
 assert.equal(corePackage.name, upstreamPackage.name);
