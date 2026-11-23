@@ -29,7 +29,7 @@
         }
 
         $base = $env:BB_SHARE_BASE_URL
-        if (!$base) { $base = 'https://github.com/smart-lty/bb-custom/releases/latest/download' }
+        if (!$base) { $base = 'https://github.com/smart-lty/CatHat/releases/latest/download' }
         if (!$base.StartsWith('https://')) { throw 'BB_SHARE_BASE_URL must be an HTTPS URL.' }
         $stage = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString('N'))
         $previousProtocols = [Net.ServicePointManager]::SecurityProtocol

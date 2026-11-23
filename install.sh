@@ -17,7 +17,7 @@ if [[ -n ${BASH_SOURCE[0]:-} ]]; then
   fi
 fi
 
-base=${BB_SHARE_BASE_URL:-https://github.com/smart-lty/bb-custom/releases/latest/download}
+base=${BB_SHARE_BASE_URL:-https://github.com/smart-lty/CatHat/releases/latest/download}
 case "$base" in
   https://*) ;;
   *) echo "BB_SHARE_BASE_URL must be an HTTPS URL." >&2; exit 1 ;;

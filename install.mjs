@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, realpathSync } from 'node:fs';
-import { access, copyFile, cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -58,8 +58,12 @@ const wallpapers = {
   dark: 'theme/wallpaper-dark-desktop.jpg',
   darkMobile: 'theme/wallpaper-dark-mobile.jpg',
 };
-const plugins = ['monocode-ui', 'monocode-colors', 'monocode-sidebar', 'monocode-composer', 'monocode-environment-card', 'turn-usage'];
+const plugins = ['monocode-ui', 'monocode-colors', 'monocode-sidebar', 'monocode-composer', 'monocode-environment-card', 'turn-usage', 'cathat-memory'];
 const archives = plugins.map(id => `release/plugins/${id}.tgz`);
+const starterArchive = 'release/cathat-starter.tgz';
+const starterPackage = 'bb-cathat-starter';
+const starterFiles = ['AGENTS.md', '.agents/skills/cathat-dispatch/SKILL.md', 'SOUL.md.example',
+  'memory/global/MEMORY.md', 'memory/projects/cathat/MEMORY.md'];
 const pluginId = name => name === 'monocode-environment-card' ? 'environment-card' : name;
 const pluginPackage = name => `bb-plugin-${pluginId(name)}`;
 const allowedNativeScripts = 'better-sqlite3,node-pty,@parcel/watcher';
@@ -286,6 +290,7 @@ async function stageRelease(root, sourceName, includeCore, includeWallpaper) {
     const checksums = await json(manifest);
     const names = [
       ...archives,
+      starterArchive,
       palette,
       ...(includeCore ? [core] : []),
       ...(includeWallpaper ? Object.values(wallpapers) : []),
@@ -299,7 +304,7 @@ async function stageRelease(root, sourceName, includeCore, includeWallpaper) {
     }
     const pluginPrefix = path.join(stage, 'plugins');
     await mkdir(pluginPrefix);
-    await npm(['install', '--offline', '--ignore-scripts', '--no-save', '--no-package-lock', '--no-audit', '--no-fund', '--prefix', pluginPrefix, ...archives.map(file => path.join(stage, path.posix.basename(file)))], stage);
+    await npm(['install', '--offline', '--ignore-scripts', '--no-save', '--no-package-lock', '--no-audit', '--no-fund', '--prefix', pluginPrefix, ...[...archives, starterArchive].map(file => path.join(stage, path.posix.basename(file)))], stage);
     for (const id of plugins) {
       const manifest = await json(path.join(pluginPrefix, 'node_modules', pluginPackage(id), 'package.json'));
       if (manifest.name !== pluginPackage(id)) throw new Error(`Invalid plugin package for ${id}.`);
@@ -446,6 +451,28 @@ async function applyDefaultWallpaper(run, stage, signal) {
   }
 }
 
+async function initializeCathat(run, stage, directory) {
+  const template = path.join(stage, 'plugins', 'node_modules', starterPackage);
+  await mkdir(directory, { recursive: true });
+  if (!(await lstat(directory)).isDirectory()) throw new Error('CatHat workspace must be a directory, not a link.');
+  for (const file of starterFiles) {
+    let parent = directory;
+    for (const part of path.posix.dirname(file).split('/')) {
+      if (part === '.') continue;
+      parent = path.join(parent, part);
+      await mkdir(parent).catch(error => { if (error.code !== 'EEXIST') throw error; });
+      if (!(await lstat(parent)).isDirectory()) throw new Error(`CatHat workspace contains a linked or non-directory path: ${parent}`);
+    }
+    const source = await readFile(path.join(template, file));
+    await writeFile(path.join(directory, file), source, { flag: 'wx' }).catch(error => {
+      if (error.code !== 'EEXIST') throw error;
+    });
+  }
+  const workspace = await realpath(directory);
+  await run(['plugin', 'config', 'cathat-memory', 'set', 'memoryRoot', path.join(workspace, 'memory')]);
+  console.log(`CatHat workspace: ${directory}`);
+}
+
 async function postStart(dataDir, stateDir, installed, options, signal) {
   const pendingFile = path.join(stateDir, 'pending.json');
   if (!await exists(pendingFile)) throw new Error('No prepared release awaits plugin setup. Run the installer first.');
@@ -456,60 +483,83 @@ async function postStart(dataDir, stateDir, installed, options, signal) {
   const url = await waitForBB(dataDir, options['server-url'] ?? pending.serverUrl, Number(options['wait-seconds']), signal);
   const target = await resolveCli(installed, dataDir, options['bb-cli'] ?? pending.bbCli);
   const run = args => cli(target, dataDir, url, args);
+  const pluginList = async () => JSON.parse(await run(['plugin', 'list', '--json'])).plugins;
   for (const name of plugins) {
     const id = pluginId(name);
     signal.throwIfAborted();
     const pluginDir = path.join(stage, 'plugins', 'node_modules', pluginPackage(name));
-    const list = JSON.parse(await run(['plugin', 'list', '--json'])).plugins;
+    const list = await pluginList();
     const current = list.find(plugin => plugin.id === id);
-    if (current?.source !== `path:${pluginDir}`) {
-      console.log((await run(['plugin', 'install', `path:${pluginDir}`, '--yes'])).trim());
+    const replaceMemory = id === 'cathat-memory' && list.some(plugin => plugin.id === 'memory' && plugin.enabled);
+    if (replaceMemory) await run(['plugin', 'disable', 'memory']);
+    try {
+      if (current?.source !== `path:${pluginDir}`) {
+        console.log((await run(['plugin', 'install', `path:${pluginDir}`, '--yes'])).trim());
+      }
+      if (!(await pluginList()).find(plugin => plugin.id === id)?.enabled) await run(['plugin', 'enable', id]);
+      const active = (await pluginList()).find(plugin => plugin.id === id);
+      if (active?.status !== 'running') throw new Error(`Plugin ${id} is not running. Inspect bb plugin list, then rerun --post-start.`);
+    } catch (error) {
+      if (replaceMemory) {
+        const failed = (await pluginList()).find(plugin => plugin.id === id);
+        if (failed?.enabled) await run(['plugin', 'disable', id]);
+        await run(['plugin', 'enable', 'memory']);
+      }
+      throw error;
     }
-    if (!(JSON.parse(await run(['plugin', 'list', '--json'])).plugins.find(plugin => plugin.id === id)?.enabled)) {
-      await run(['plugin', 'enable', id]);
-    }
-    const active = JSON.parse(await run(['plugin', 'list', '--json'])).plugins.find(plugin => plugin.id === id);
-    if (active?.status !== 'running') throw new Error(`Plugin ${id} is not running. Inspect bb plugin list, then rerun --post-start.`);
   }
   const preset = await json(path.join(stage, path.posix.basename(palette)));
   const current = JSON.parse(await run(['monocode-colors', 'export']));
   await run(['monocode-colors', 'import', JSON.stringify({ light: current.light, dark: preset.dark })]);
   if (!options['no-wallpaper'] && pending.wallpaper === true) await applyDefaultWallpaper(run, stage, signal);
+  const workspace = options['init-cathat'] ?? pending.cathatWorkspace;
+  if (workspace) await initializeCathat(run, stage, workspace);
+  else console.log('To create a CatHat workspace, run the release installer with --init-cathat [directory].');
   await rm(pendingFile);
-  console.log('Six plugins are running and the dark palette is applied.');
+  console.log('Seven plugins are running and the dark palette is applied.');
 }
 
 async function main() {
-  const { values: options } = parseArgs({ options: {
+  const args = process.argv.slice(2);
+  const initIndex = args.indexOf('--init-cathat');
+  if (initIndex !== -1 && (args[initIndex + 1] === undefined || args[initIndex + 1].startsWith('--'))) {
+    args.splice(initIndex + 1, 0, path.join(homedir(), 'cathat-workspace'));
+  }
+  const { values: options } = parseArgs({ args, options: {
+    'init-cathat': { type: 'string' },
     source: { type: 'string' }, dir: { type: 'string' }, 'dry-run': { type: 'boolean' },
     rollback: { type: 'boolean' }, 'plugins-only': { type: 'boolean' }, 'skip-post-start': { type: 'boolean' },
     'post-start': { type: 'boolean' }, 'no-wallpaper': { type: 'boolean' }, 'server-url': { type: 'string' }, 'bb-cli': { type: 'string' },
     'wait-seconds': { type: 'string', default: '300' }, help: { type: 'boolean', short: 'h' },
   } });
   if (options.help) {
-    console.log('node install.mjs [--source <https-url-or-directory>] [--dir <data-directory>] [--dry-run] [--plugins-only] [--no-wallpaper] [--skip-post-start | --post-start | --rollback] [--wait-seconds <seconds>] [--server-url <local-origin>] [--bb-cli <bb.js>]');
+    console.log('node install.mjs [--source <https-url-or-directory>] [--dir <data-directory>] [--dry-run] [--plugins-only] [--init-cathat [directory]] [--no-wallpaper] [--skip-post-start | --post-start | --rollback] [--wait-seconds <seconds>] [--server-url <local-origin>] [--bb-cli <bb.js>]');
     return;
   }
   const node = process.versions.node.split('.').map(Number);
   if (node[0] < 22 || (node[0] === 22 && node[1] < 19)) throw new Error('Node.js 22.19 or newer is required.');
-  if ((options.rollback && (options['post-start'] || options['plugins-only'] || options['skip-post-start'])) ||
+  if ((options.rollback && (options['init-cathat'] || options['post-start'] || options['plugins-only'] || options['skip-post-start'])) ||
       (options['post-start'] && (options['plugins-only'] || options['skip-post-start']))) throw new Error('Conflicting installer modes.');
   const seconds = Number(options['wait-seconds']);
   if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 3600) throw new Error('--wait-seconds must be between 1 and 3600.');
   if (options['server-url']) loopbackUrl(options['server-url']);
+  if (options['init-cathat'] !== undefined) {
+    if (!options['init-cathat']) throw new Error('--init-cathat requires a non-empty directory.');
+    options['init-cathat'] = path.resolve(options['init-cathat']);
+  }
   const stateEntryDir = path.dirname(entryPath);
   const recovery = options.rollback || options['post-start'];
   const storedDataDir = recovery && path.basename(stateEntryDir) === 'bb-share' ? path.dirname(stateEntryDir) : undefined;
   const dataDir = await selectDirectory(options.dir ?? storedDataDir);
   if (!(await stat(dataDir)).isDirectory()) throw new Error('--dir must be a directory.');
   const state = path.join(dataDir, 'bb-share');
-  const needsStopped = options.rollback || (!options['post-start'] && !options['plugins-only']);
+  const needsStopped = options.rollback || (!options['post-start'] && !options['plugins-only'] && !options['init-cathat']);
   const installed = options.rollback ? null : await findPackage(dataDir, needsStopped);
   if (options['dry-run']) {
     if (needsStopped && !options.rollback && await exists(path.join(state, 'original-npm'))) {
       throw new Error('A core backup already exists. Roll back before replacing the core again.');
     }
-    console.log(`Dry run | ${dataDir} | ${options.rollback ? 'restore the original npm prefix' : options['post-start'] ? 'resume plugin and palette setup' : options['plugins-only'] ? 'stage plugins and palette' : `replace bb-app ${installed.version} at ${installed.location}, keeping the original npm prefix`}`);
+    console.log(`Dry run | ${dataDir} | ${options.rollback ? 'restore the original npm prefix' : options['post-start'] ? 'resume plugin and palette setup' : (options['plugins-only'] || options['init-cathat']) ? 'stage plugins and palette' : `replace bb-app ${installed.version} at ${installed.location}, keeping the original npm prefix`}`);
     return;
   }
   if (needsStopped) await requireStopped(dataDir);
@@ -548,6 +598,7 @@ async function main() {
     await writeFile(next, JSON.stringify({
       release: path.basename(stage),
       wallpaper,
+      cathatWorkspace: options['init-cathat'],
       serverUrl: options['server-url'],
       bbCli: options['bb-cli'] ? path.resolve(options['bb-cli']) : undefined,
     }));

@@ -1,17 +1,40 @@
-# BB 定制分享版
+# CatHat · BB 定制分享版
 
-基于 BB 0.49.0，包含核心 npm 包、六个预构建插件、MonoCode 暗色色板和桌面横版、手机竖版暗色壁纸。核心包包含浏览器 UI、server、host daemon、CLI、SQLite 数据层与内置插件。
+CatHat 提供多 Agent 主控、跨会话 Markdown 记忆和夜间 Dreaming。基于 BB 0.49.0，包含核心 npm 包、七个预构建插件、MonoCode 暗色色板和桌面横版、手机竖版暗色壁纸。核心包包含浏览器 UI、server、host daemon、CLI、SQLite 数据层与内置插件。
 
 - 输入框把权限选项收进模型菜单，支持宽屏居中、统一的 Queue 提示和多轮回报去重。
 - 子任务每父线程最多并发三个，按加入顺序排队，Undo 保留相应槽位。回报支持合并通知、人工回合防打断、右窗直聊静默和空回防抖。内置存储保留插件含自动归档护栏。
 - MonoCode 提供烟熏黑、暖杏色行内代码、独立的暗色 Markdown、壁纸与移动端背景选项、Projects / Activity 双视图、侧栏滑动归档与 Undo、胶囊输入框、Environment 卡片和每轮用量。
 
+## CatHat 三分钟上手
+
+1. 启动 BB，先按下文任一方式安装插件。也可下载完整 Release 到本地，按本文目录布局运行：
+
+   ```bash
+   node install.mjs --source . --init-cathat "$HOME/cathat-workspace"
+   ```
+
+2. 在 BB 新建一个名为 **CatHat** 的项目，指向该工作区。打开项目线程即可使用主控规则、子线程派活与自动注入的记忆。运行 `bb memory status` 核对 `memoryRoot` 和索引。初始化只写缺失的模板文件，保留已有文件。
+3. 需要自定义会话风格时，将 `SOUL.md.example` 复制为 `SOUL.md`，再用下文配置命令指定文件路径。Dreaming 可选，配置后每天 04:00 按服务端时区整理记忆并生成日报。
+
+`--init-cathat` 默认使用家目录里的 `cathat-workspace`，单独调用时只装插件、色板和壁纸，保留原核心。也可在 `--post-start` 阶段传入。安装会禁用 BB 自带的 `memory` 插件，把 `bb memory` 命令交给 CatHat。原有记忆文件保留。此版用于新安装；已有旧 CatHat Memory 数据库的用户请保留原插件与数据库备份，旧数据库迁移未纳入本次发布。
+
+```text
+bb plugin config cathat-memory set soulPath "<absolute-path-to-SOUL.md>"
+bb plugin config cathat-memory set controllerProjectId "<project-id>"
+bb plugin config cathat-memory set dreamingProvider "<provider-id>"
+bb plugin config cathat-memory set dreamingModel "<model-id>"
+bb memory status
+```
+
+Dreaming 使用用户配置的 provider 读取线程摘录并生成全局或项目记忆，以及 `daily/YYYY-MM-DD.md`。成功落盘后，会归档已消费的独立 Automation 会话。尚未设置项目、provider 或模型时，记忆和 CLI 仍可使用，Dreaming 保持关闭。
+
 ## 方式 1 · 下载桌面安装包
 
-- **macOS Apple Silicon（arm64）** 下载 [DMG](https://github.com/smart-lty/bb-custom/releases/latest/download/bb-custom-macos-arm64.dmg)，打开后将 `BB Custom.app` 拖到 Applications。此版本采用临时签名，未经 Apple 公证。确认下载可信后，如系统阻止启动，可在终端执行 `xattr -cr "/Applications/BB Custom.app"`，再打开应用。
-- **Windows x64** 下载 [EXE](https://github.com/smart-lty/bb-custom/releases/latest/download/bb-custom-windows-x64.exe)。确认下载可信后，若 SmartScreen 显示保护提示，点 **更多信息 → 仍要运行**。
+- **macOS Apple Silicon（arm64）** 下载 [DMG](https://github.com/smart-lty/CatHat/releases/latest/download/bb-custom-macos-arm64.dmg)，打开后将 `BB Custom.app` 拖到 Applications。此版本采用临时签名，未经 Apple 公证。确认下载可信后，如系统阻止启动，可在终端执行 `xattr -cr "/Applications/BB Custom.app"`，再打开应用。
+- **Windows x64** 下载 [EXE](https://github.com/smart-lty/CatHat/releases/latest/download/bb-custom-windows-x64.exe)。确认下载可信后，若 SmartScreen 显示保护提示，点 **更多信息 → 仍要运行**。
 
-桌面包内含 BB 定制核心，关闭了桌面壳与核心的更新入口。首次启动前请退出占用同一本地端口的 BB，并选择本地运行。六个 MonoCode 插件、色板和壁纸通过现有安装器补装。启动 BB Custom 后，用下方脚本的传参方式加 `--plugins-only --dir "<BB 数据目录>"`。需要指定 CLI 时，`--bb-cli` 指向安装目录下 `resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。macOS 的对应路径为 `BB Custom.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。没有启动记录时同时使用 `--server-url` 指定本地实例。仓库为私有时，有权限的用户可下载 Release 文件，按下方本地目录布局执行 `node install.mjs --source . --plugins-only`。
+桌面包内含 BB 定制核心，关闭了桌面壳与核心的更新入口。首次启动前请退出占用同一本地端口的 BB，并选择本地运行。七个插件、色板和壁纸通过现有安装器补装。启动 BB Custom 后，用下方脚本的传参方式加 `--plugins-only --dir "<BB 数据目录>"`。需要指定 CLI 时，`--bb-cli` 指向安装目录下 `resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。macOS 的对应路径为 `BB Custom.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/dist/bb.js`。没有启动记录时同时使用 `--server-url` 指定本地实例。仓库为私有时，有权限的用户可下载 Release 文件，按下方本地目录布局执行 `node install.mjs --source . --plugins-only`。
 
 维护者可从 **Actions → Build custom desktop installers** 手动运行 workflow。默认使用 `v0.49.0-custom.1`，两个平台都通过打包冒烟检查后才上传。取消勾选 `upload_to_release` 可仅保留本轮 Actions 产物。
 
@@ -26,29 +49,29 @@
 macOS、Linux、WSL2，在发布后将地址换成实际 GitHub Release 下载地址。
 
 ```bash
-curl -fsSL https://github.com/smart-lty/bb-custom/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/smart-lty/CatHat/releases/latest/download/install.sh | bash
 ```
 
 Windows PowerShell。
 
 ```powershell
-irm https://github.com/smart-lty/bb-custom/releases/latest/download/install.ps1 | iex
+irm https://github.com/smart-lty/CatHat/releases/latest/download/install.ps1 | iex
 ```
 
 需要指定数据目录或传入其他选项时，可用下面的写法。
 
 ```bash
-curl -fsSL https://github.com/smart-lty/bb-custom/releases/latest/download/install.sh |
+curl -fsSL https://github.com/smart-lty/CatHat/releases/latest/download/install.sh |
   bash -s -- --dir "/path/to/bb-data" --dry-run
 ```
 
 ```powershell
-& ([scriptblock]::Create((irm https://github.com/smart-lty/bb-custom/releases/latest/download/install.ps1))) --dir 'C:\Path\To\BB' --dry-run
+& ([scriptblock]::Create((irm https://github.com/smart-lty/CatHat/releases/latest/download/install.ps1))) --dir 'C:\Path\To\BB' --dry-run
 ```
 
 薄壳使用发布时设置的下载地址，也可用 `BB_SHARE_BASE_URL` 或 `$env:BB_SHARE_BASE_URL` 覆盖。命令会执行下载的脚本，请使用你信任的发布地址。
 
-看到提示后，用原来的启动方式重新打开 BB。安装器会等待本地 server 就绪，随后用 BB CLI 安装六个插件并导入暗色色板，保留已有的浅色色板。选择 Settings 里的 **MonoCode** 主题和 **Dark** 模式即可查看效果。空置的暗色桌面与手机竖屏槽位会加入默认壁纸。四个壁纸槽位都为空时，会应用推荐效果（填满视窗、居中、透明度 56、遮罩 10、模糊 0）。已有壁纸时保留原图和现有视觉参数，浅色槽位保持原设置。
+看到提示后，用原来的启动方式重新打开 BB。安装器会等待本地 server 就绪，随后用 BB CLI 安装七个插件并导入暗色色板，保留已有的浅色色板。选择 Settings 里的 **MonoCode** 主题和 **Dark** 模式即可查看效果。空置的暗色桌面与手机竖屏槽位会加入默认壁纸。四个壁纸槽位都为空时，会应用推荐效果（填满视窗、居中、透明度 56、遮罩 10、模糊 0）。已有壁纸时保留原图和现有视觉参数，浅色槽位保持原设置。
 
 使用 `--no-wallpaper` 可以只应用烟熏黑暗色色板、跳过默认壁纸。执行分步安装时，可在准备阶段或 `--post-start` 阶段传入该参数。随时可在 **Settings → MonoCode colors → Background** 更换或清除图片；也可在 CLI 运行 `bb monocode-colors bg clear --dark` 清除两个暗色槽位，附加 `--mobile` 则只清除手机槽位。
 
@@ -66,7 +89,7 @@ node "<BB 数据目录>/bb-share/install.mjs" --post-start
 
 ## 本地测试与分步安装
 
-把发布目录完整复制到本机，保留 `release/`、`theme/` 和根目录的 `sha256.json`。`--source .` 从本地取发布文件。首次安装核心时，npm 仍可能从 registry 下载依赖和目标系统的原生模块。
+把发布目录完整复制到本机，保留 `release/`、`theme/` 和根目录的 `sha256.json`。Release 平铺下载时，插件 tgz 放到 `release/plugins/`，核心与 `cathat-starter.tgz` 放到 `release/`，色板和壁纸放到 `theme/`。`--source .` 从本地取发布文件。首次安装核心时，npm 仍可能从 registry 下载依赖和目标系统的原生模块。
 
 已有固定 npm 安装时，从发布目录执行。
 
@@ -118,10 +141,10 @@ bb storage retention --archive-after 7 --save --yes
 node "<BB 数据目录>/bb-share/install.mjs" --rollback
 ```
 
-安装前的整个 npm 目录会从 `<BB 数据目录>/bb-share/original-npm` 移回原处，包含原来的可执行入口和原生依赖。回滚针对程序包，数据库、对话、插件注册、色板和壁纸由 BB 自身管理。需要关闭分享版插件时，在 BB 重新启动后从 Settings → Plugins 禁用，或执行 `bb plugin disable <id>`。六个 ID 为 `monocode-ui`、`monocode-colors`、`monocode-sidebar`、`monocode-composer`、`environment-card` 和 `turn-usage`。
+安装前的整个 npm 目录会从 `<BB 数据目录>/bb-share/original-npm` 移回原处，包含原来的可执行入口和原生依赖。回滚针对程序包，数据库、对话、插件注册、色板和壁纸由 BB 自身管理。需要关闭分享版插件时，在 BB 重新启动后从 Settings → Plugins 禁用，或执行 `bb plugin disable <id>`。七个 ID 为 `monocode-ui`、`monocode-colors`、`monocode-sidebar`、`monocode-composer`、`environment-card` 、`turn-usage` 和 `cathat-memory`。
 
 ## GitHub 发布
 
-1. 复核 [脱敏扫描](PRIVACY.md) 和 [隔离验证](VERIFICATION.md)。在新仓库中加入此目录的文件，保留许可证。两个薄壳与使用示例均指向 `smart-lty/bb-custom`。
+1. 复核 [脱敏扫描](PRIVACY.md) 和 [隔离验证](VERIFICATION.md)。在新仓库中加入此目录的文件，保留许可证。两个薄壳与使用示例均指向 `smart-lty/CatHat`。
 2. 在该分享仓库提交并推送，创建一个 GitHub Release，例如 `v0.49.0-custom.1`。
-3. 把 `install.sh`、`install.ps1`、`install.mjs`、`sha256.json`、核心 tgz、六个插件 tgz、色板 JSON 和两张壁纸 JPG 作为同一个 Release 的独立附件上传。GitHub Release 附件按文件名平铺。用该发布的下载地址验证两条一键命令，再分享链接。
+3. 把 `install.sh`、`install.ps1`、`install.mjs`、`sha256.json`、核心 tgz、七个插件 tgz、`cathat-starter.tgz`、色板 JSON 和两张壁纸 JPG 作为同一个 Release 的独立附件上传。GitHub Release 附件按文件名平铺。用该发布的下载地址验证两条一键命令，再分享链接。

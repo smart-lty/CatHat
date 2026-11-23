@@ -3,10 +3,12 @@
   "release/plugins/monocode-colors.tgz": "4edfdf8c380b97655e9f2decb44d4a54aa843a72749d6c43d7b063d1f6c687d2",
   "release/plugins/monocode-composer.tgz": "158b251b018abdfb37e90ca7b15967ad4f2a67375592d255fefd0d91f4ebb25b",
   "release/plugins/monocode-environment-card.tgz": "ba2bf526c690049da3bf206cf5123ffc588305e8fd4382b538a2e05d9e30acb9",
-  "release/plugins/monocode-sidebar.tgz": "3cce1598caaa0da8f7b2ca265ec7132c2882267a816daad3c0ff441d545a05bc",
+  "release/plugins/monocode-sidebar.tgz": "d36455dcff643196da2d7d3e40c53c910576d0ce9c6a912d64ef2c98f506fc0a",
   "release/plugins/monocode-ui.tgz": "b37bf3206d0266014774fe465f6cb279667b54c2c061c3e6769c86338ce34908",
   "release/plugins/turn-usage.tgz": "d8a36270cb3e3cdab118b433fa3a32753152bd8792b76c0ce49571ac04289d23",
   "theme/monocode-dark-palette.json": "7f21baf2a6d728080c512f2e658ed420ab6b244177677fb270b55374dfdbdaa5",
   "theme/wallpaper-dark-desktop.jpg": "df2f824807d109ccf5c2cbd57bc241854623d5157bce33a773d8813c221398bb",
-  "theme/wallpaper-dark-mobile.jpg": "e1f6e53da7ac00c5e89ddde0004907fd5c56e80518802a6cb3dfcfba5175fe85"
+  "theme/wallpaper-dark-mobile.jpg": "e1f6e53da7ac00c5e89ddde0004907fd5c56e80518802a6cb3dfcfba5175fe85",
+  "release/plugins/cathat-memory.tgz": "bb353c4ef27faf2b12a25949981dd8c364c127706d5d8c25ada8ed57a37aab5a",
+  "release/cathat-starter.tgz": "731688e1f6d468be9e90f798a2604ff72fab33ba629726d6f8b3c913b0a03814"
 }

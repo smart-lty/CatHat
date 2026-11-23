@@ -55,10 +55,11 @@ async function fixtureRelease(root, env) {
     await writeFile(path.join(source, file), bytes);
   }
   await pack({ name: 'bb-app', version: '1.1.0', bin: { 'bb-app': 'dist/bb-app.js' } }, 'release/bb-app-custom.tgz');
-  for (const name of ['monocode-ui', 'monocode-colors', 'monocode-sidebar', 'monocode-composer', 'monocode-environment-card', 'turn-usage']) {
+  for (const name of ['monocode-ui', 'monocode-colors', 'monocode-sidebar', 'monocode-composer', 'monocode-environment-card', 'turn-usage', 'cathat-memory']) {
     const nameInPackage = name === 'monocode-environment-card' ? 'environment-card' : name;
     await pack({ name: `bb-plugin-${nameInPackage}`, version: '1.1.0' }, `release/plugins/${name}.tgz`);
   }
+  await pack({ name: 'bb-cathat-starter', version: '1.1.0' }, 'release/cathat-starter.tgz');
   const palette = '{"light":{},"dark":{"inlineCodeText":"#eab87e"}}';
   const theme = 'theme/monocode-dark-palette.json';
   checksums[theme] = createHash('sha256').update(palette).digest('hex');
@@ -252,6 +253,31 @@ test('post-start applies and protects real MonoCode wallpapers', {
       await resume('--no-wallpaper');
       assert.deepEqual(await read(), before);
     });
+    await t.test('initializes and reuses a real CatHat workspace without overwriting files', async () => {
+      const workspace = path.join(root, 'CatHat workspace');
+      const memory = path.join(workspace, 'memory');
+      const globalIndex = path.join(memory, 'global', 'MEMORY.md');
+      await mkdir(path.dirname(globalIndex), { recursive: true });
+      await writeFile(path.join(workspace, 'AGENTS.md'), '# Existing instructions\n');
+      await writeFile(globalIndex, '# Existing memory\n');
+      for (const flags of [['--init-cathat', workspace], []]) {
+        await prepare(...flags);
+        const result = await resume(...(flags.length === 0 ? ['--init-cathat', workspace] : []));
+        assert.match(result.stdout, /Seven plugins are running/);
+        const { stdout } = await exec(process.execPath, [cli, 'memory', 'status', '--json'], { env: cliEnv, timeout: 30_000 });
+        const state = JSON.parse(stdout);
+        assert.equal(state.root, path.join(await realpath(workspace), 'memory'));
+        assert.equal(await readFile(path.join(workspace, 'AGENTS.md'), 'utf8'), '# Existing instructions\n');
+        assert.equal(await readFile(globalIndex, 'utf8'), '# Existing memory\n');
+        assert.match(await readFile(path.join(workspace, '.agents', 'skills', 'cathat-dispatch', 'SKILL.md'), 'utf8'), /bb thread spawn --parent-self/);
+      }
+      const { stdout } = await exec(process.execPath, [cli, 'plugin', 'list', '--json'], { env: cliEnv, timeout: 30_000 });
+      const plugins = JSON.parse(stdout).plugins;
+      for (const id of ['monocode-ui', 'monocode-colors', 'monocode-composer', 'monocode-sidebar', 'environment-card', 'turn-usage', 'cathat-memory']) {
+        assert.equal(plugins.find(plugin => plugin.id === id)?.status, 'running', id);
+      }
+    });
+
   } finally {
     controller.abort();
     if (bb.exitCode === null && bb.signalCode === null) {
