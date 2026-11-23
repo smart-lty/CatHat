@@ -1,0 +1,32 @@
+{
+  "light": {},
+  "dark": {
+    "codeBg": "#161618b3",
+    "codeText": "#e4e4e7",
+    "codeHeaderBg": "#1e1e21bf",
+    "codeHeaderText": "#a1a1aa",
+    "lineNumber": "#7e7e88",
+    "keyword": "#f28b94",
+    "string": "#8ed4a0",
+    "comment": "#82828c",
+    "function": "#c4b5fd",
+    "type": "#eab87e",
+    "property": "#8ec5f8",
+    "variable": "#e4e4e7",
+    "punctuation": "#a1a1aa",
+    "jsx": "#e4e4e7",
+    "strong": "#fafafa",
+    "em": "#e4e4e7",
+    "heading": "#f4f4f5",
+    "link": "#93b4f5",
+    "linkHover": "#b6ceff",
+    "inlineCodeBg": "#00000000",
+    "inlineCodeText": "#eab87e",
+    "quoteBg": "#ffffff0d",
+    "quoteText": "#d4d4d8",
+    "tableHeaderBg": "#202024bf",
+    "accent": "#e4e4e7",
+    "sidebar": "#0a0a0c",
+    "selection": "#ffffff18"
+  }
+}
